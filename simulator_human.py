@@ -6,7 +6,6 @@ import math
 import time
 
 world = Map.initialize()
-f = open('data.txt', 'w')
 cv2.imshow('Simulator', world)
 
 x = 78
@@ -14,11 +13,10 @@ y = 78
 theta = 78
 v = 4
 
-def randomMove():
+def doRandomMove(action):
     global x, y, theta, v
     front, frontLeft, frontRight, backLeft, backRight = getSignal(x, y, theta, v)
-    print(x, y, theta, front, frontLeft, frontRight, backLeft, backRight)
-    saveData(theta, front, frontLeft, frontRight, backLeft, backRight)
+    # print(x, y, theta, front, frontLeft, frontRight, backLeft, backRight)
 
     map_copy = world.copy()
     cv2.rectangle(map_copy, (int(x-3), int(y-3)), (int(x+3), int(y+3)), (0, 0, 255), 2)
@@ -29,25 +27,30 @@ def randomMove():
     cv2.line(map_copy, (int(x), int(y)), (int(x+front*math.cos(theta*math.pi/180)), int(y+front*math.sin(theta*math.pi/180))), (0, 255, 0), 1, 4)
     cv2.imshow('Simulator', map_copy)
 
-    theta_change = random.randint(-10, 10)
-    theta += theta_change
-    if (crash()):
-        theta -= theta_change
-        if (getSignal(x, y, theta, v)[1]<getSignal(x, y, theta, v)[2]):
-            saveDecision(-1)
-            while (crash()):
-                theta -= random.randint(1, 10)
-        else:
-            saveDecision(1)
-            while (crash()):
-                theta += random.randint(1, 10)
-    else:
-        saveDecision(0)
-        pass
-    x = x+v*math.cos(theta*math.pi/180)
-    y = y+v*math.sin(theta*math.pi/180)
+    x, y, theta, v = getRandomMove(x, y, theta, v, action)
 
-def crash():
+def getRandomMove(x, y, theta, v, action):
+    theta_change = random.randint(-5+20*action, 5+20*action)
+    theta += theta_change
+    if (crash(x, y, theta, v)):
+        theta -= theta_change
+        # if (getSignal(x, y, theta, v)[1] < getSignal(x, y, theta, v)[2]):
+        #     while (crash(x, y, theta, v)):
+        #         theta -= random.randint(1, 10)
+        # else:
+        #     while (crash(x, y, theta, v)):
+        #         theta += random.randint(1, 10)
+        if (action == 0): action = 1
+        while (crash(x, y, theta, v)):
+            theta += action*random.randint(10, 20)
+            pass
+    else:
+        pass
+    x = x + v * math.cos(theta * math.pi / 180)
+    y = y + v * math.sin(theta * math.pi / 180)
+    return (x, y, theta, v)
+
+def crash(x, y, theta, v):
     if (x + v * math.cos(theta*math.pi/180) < 5): return True
     if (x + v * math.cos(theta*math.pi/180) > 495): return True
     if (y + v * math.sin(theta*math.pi/180) < 5): return True
@@ -100,22 +103,28 @@ def getSignal(x, y, theta, v ):
     return (front, frontLeft, frontRight, backLeft, backRight)
     pass
 
-def saveData(theta, front, frontLeft, frontRight, backLeft, backRight):
-    global f
-    f.write(str(theta)+' '+str(front)+' '+str(frontLeft)+' '+str(frontRight)+' '+str(backLeft)+' '+str(backRight)+' ')
+def getReward(x, y, theta, v, action=None):
+    newX, newY, newTheta, newV = getRandomMove(x, y, theta, v)
+    front, frontLeft, frontRight, backLeft, backRight = getSignal(newX, newY, newTheta, newV)
+    reward = calculateReward(front, frontLeft, frontRight, backLeft, backRight, abs(newTheta-theta))
     pass
 
-def saveDecision(d):
-    global f
-    f.write(str(d)+"\n")
+def calculateReward(front, frontLeft, frontRight, backLeft, backRight, thetaChange):
+    reward = 1/(1/front+1/frontLeft+1/frontRight+1/backLeft+1/backRight)
     pass
-i=0
+
 while (True):
-    i=i+1
-    print(i)
-    randomMove()
-    k = cv2.waitKey(10) & 0xff
+    doRandomMove(action)
+    k = cv2.waitKey(100) & 0xff
+    print(k)
     if k == 27:
         break
+    elif k == 100:
+        action = 1
+    elif k == 97:
+        action = -1
+    else:
+        action = 0
+
+
 cv2.destroyAllWindows()
-f.close()
